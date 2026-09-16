@@ -42,6 +42,32 @@ blockchain.add_block({
     "aktivitas": "Proses Sertifikasi Halal",
     "status": "Diproses"
 })
+# ========================================
+# BLOK 4 - Distribusi Produk
+# Ditambahkan oleh: Fidz
+# Pertemuan: 1
+# ========================================
+blockchain.add_block({
+    "id_produk": "HALAL-001",
+    "nama_produk": "Choco Delight",
+    "actor": "Distributor",
+    "aktivitas": "Pengiriman Produk ke Toko",
+    "status": "Tersedia di Pasar"
+})
+
+# ========================================
+# BLOK 5 - Penjualan ke Konsumen
+# Ditambahkan oleh: Fidz
+# Pertemuan: 1
+# ========================================
+blockchain.add_block({
+    "id_produk": "HALAL-001",
+    "nama_produk": "Choco Delight",
+    "actor": "Konsumen",
+    "aktivitas": "Pembelian Produk",
+    "status": "Selesai"
+})
+
 
 
 # ==========================================
@@ -72,3 +98,4 @@ if blockchain.is_valid():
     print("Blockchain valid")
 else:
     print("Blockchain tidak valid")
+  
