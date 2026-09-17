@@ -1,7 +1,13 @@
 from blockchain import Blockchain
+from block import Block
+from pow import ProofOfWork
+from pos import ProofOfStake
 
 
-# Membuat blockchain
+# ==========================================
+# MEMBUAT BLOCKCHAIN
+# ==========================================
+
 blockchain = Blockchain()
 
 
@@ -42,11 +48,12 @@ blockchain.add_block({
     "aktivitas": "Proses Sertifikasi Halal",
     "status": "Diproses"
 })
-# ========================================
-# BLOK 4 - Distribusi Produk
-# Ditambahkan oleh: Fidz
-# Pertemuan: 1
-# ========================================
+
+
+# ==========================================
+# BLOCK 4 - DISTRIBUSI PRODUK
+# ==========================================
+
 blockchain.add_block({
     "id_produk": "HALAL-001",
     "nama_produk": "Choco Delight",
@@ -55,11 +62,11 @@ blockchain.add_block({
     "status": "Tersedia di Pasar"
 })
 
-# ========================================
-# BLOK 5 - Penjualan ke Konsumen
-# Ditambahkan oleh: Fidz
-# Pertemuan: 1
-# ========================================
+
+# ==========================================
+# BLOCK 5 - PENJUALAN KE KONSUMEN
+# ==========================================
+
 blockchain.add_block({
     "id_produk": "HALAL-001",
     "nama_produk": "Choco Delight",
@@ -67,7 +74,6 @@ blockchain.add_block({
     "aktivitas": "Pembelian Produk",
     "status": "Selesai"
 })
-
 
 
 # ==========================================
@@ -83,6 +89,7 @@ for block in blockchain.chain:
     print("Timestamp     :", block.timestamp)
     print("Data          :", block.data)
     print("Previous Hash :", block.previous_hash)
+    print("Nonce         :", block.nonce)
     print("Hash          :", block.hash)
 
 
@@ -98,4 +105,84 @@ if blockchain.is_valid():
     print("Blockchain valid")
 else:
     print("Blockchain tidak valid")
-  
+
+
+# ==========================================
+# SIMULASI PROOF OF WORK
+# ==========================================
+
+print("\n==========================================")
+print("SIMULASI PROOF OF WORK")
+print("==========================================")
+
+for difficulty in [2, 3, 4, 5]:
+
+    # Membuat block khusus untuk percobaan PoW
+    block_pow = Block(
+        index=6,
+        data={
+            "id_produk": "HALAL-001",
+            "nama_produk": "Choco Delight",
+            "aktivitas": "Pengujian Proof of Work"
+        },
+        previous_hash=blockchain.chain[-1].hash
+    )
+
+    # Membuat Proof of Work
+    pow = ProofOfWork(difficulty)
+
+    # Melakukan mining
+    nonce, hash_result, mining_time = pow.mine(block_pow)
+
+    # Menampilkan hasil
+    print("\nDifficulty :", difficulty)
+    print("Nonce      :", nonce)
+    print("Waktu      :", mining_time, "detik")
+    print("Hash       :", hash_result)
+
+
+# ==========================================
+# SIMULASI PROOF OF STAKE
+# ==========================================
+
+print("\n==========================================")
+print("SIMULASI PROOF OF STAKE")
+print("==========================================")
+
+validators = {
+    "Farmer": 10,
+    "Distributor": 20,
+    "Warehouse": 30,
+    "Retailer": 40
+}
+
+pos = ProofOfStake(validators)
+
+hasil = {
+    "Farmer": 0,
+    "Distributor": 0,
+    "Warehouse": 0,
+    "Retailer": 0
+}
+
+
+# Simulasi 20 kali
+
+for i in range(20):
+
+    selected = pos.select_validator()
+
+    hasil[selected] += 1
+
+    print("Simulasi", i + 1, ":", selected)
+
+
+# ==========================================
+# HASIL PEMILIHAN VALIDATOR
+# ==========================================
+
+print("\nHasil pemilihan:")
+
+for validator, jumlah in hasil.items():
+
+    print(validator, ":", jumlah, "kali")
