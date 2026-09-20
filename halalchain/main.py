@@ -51,7 +51,7 @@ blockchain.add_block({
 
 
 # ==========================================
-# BLOCK 4 - DISTRIBUSI PRODUK
+# BLOCK 4 - DISTRIBUTOR
 # ==========================================
 
 blockchain.add_block({
@@ -64,7 +64,7 @@ blockchain.add_block({
 
 
 # ==========================================
-# BLOCK 5 - PENJUALAN KE KONSUMEN
+# BLOCK 5 - KONSUMEN
 # ==========================================
 
 blockchain.add_block({
@@ -79,6 +79,10 @@ blockchain.add_block({
 # ==========================================
 # MENAMPILKAN BLOCKCHAIN
 # ==========================================
+
+print("\n==========================================")
+print("BLOCKCHAIN SERTIFIKASI HALAL")
+print("==========================================")
 
 for block in blockchain.chain:
 
@@ -115,6 +119,7 @@ print("\n==========================================")
 print("SIMULASI PROOF OF WORK")
 print("==========================================")
 
+
 for difficulty in [2, 3, 4, 5]:
 
     # Membuat block khusus untuk percobaan PoW
@@ -149,20 +154,23 @@ print("\n==========================================")
 print("SIMULASI PROOF OF STAKE")
 print("==========================================")
 
+
 validators = {
-    "Farmer": 10,
-    "Distributor": 20,
-    "Warehouse": 30,
-    "Retailer": 40
+    "Produsen": 10,
+    "Pemeriksa": 20,
+    "BPJPH": 30,
+    "Distributor": 40
 }
+
 
 pos = ProofOfStake(validators)
 
+
 hasil = {
-    "Farmer": 0,
-    "Distributor": 0,
-    "Warehouse": 0,
-    "Retailer": 0
+    "Produsen": 0,
+    "Pemeriksa": 0,
+    "BPJPH": 0,
+    "Distributor": 0
 }
 
 
@@ -181,7 +189,9 @@ for i in range(20):
 # HASIL PEMILIHAN VALIDATOR
 # ==========================================
 
-print("\nHasil pemilihan:")
+print("\n==========================================")
+print("HASIL PEMILIHAN VALIDATOR")
+print("==========================================")
 
 for validator, jumlah in hasil.items():
 
