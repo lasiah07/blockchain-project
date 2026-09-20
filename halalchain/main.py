@@ -156,10 +156,10 @@ print("==========================================")
 
 
 validators = {
-    "Produsen": 10,
-    "Pemeriksa": 20,
-    "BPJPH": 30,
-    "Distributor": 40
+    "Produsen": 70,
+    "Pemeriksa": 10,
+    "BPJPH": 10,
+    "Distributor": 10
 }
 
 
