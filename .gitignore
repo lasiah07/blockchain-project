@@ -1,4 +1,12 @@
 node_modules/
 artifacts/
 cache/
+typechain-types/
+__pycache__/
+*.pyc
+.venv/
+
 .env
+.env.*
+!.env.example
+.streamlit/secrets.toml

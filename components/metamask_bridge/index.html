@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  html, body { margin: 0; padding: 0; background: transparent; }
+  body { font-family: 'DM Sans', -apple-system, 'Segoe UI', Roboto, sans-serif; color: #EAF4ED; font-size: 13px; }
+  .row { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; line-height: 1.35; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: #9CB59B; }
+  .dot.ok { background: #6FD39B; box-shadow: 0 0 0 3px rgba(111,211,155,.18); }
+  .dot.warn { background: #E6B64F; box-shadow: 0 0 0 3px rgba(230,182,79,.18); }
+  .dot.bad { background: #E27B7B; box-shadow: 0 0 0 3px rgba(226,123,123,.18); }
+  .msg { font-size: 12px; color: #D5E5D9; }
+  .err { font-size: 12px; color: #F4C2C2; margin: 0 0 8px; }
+  button, a.btn {
+    display: flex; align-items: center; justify-content: flex-start; gap: 8px; box-sizing: border-box;
+    width: 100%; padding: 9px 12px; margin: 0 0 6px; border-radius: 10px; cursor: pointer;
+    font: 600 13px 'DM Sans', sans-serif; text-decoration: none; text-align: left;
+    border: 1px solid #527866; background: transparent; color: #EAF4ED;
+  }
+  button:hover, a.btn:hover { background: #245746; }
+  button.primary { background: #E3F0E6; color: #153D32; border-color: #C5DDCB; }
+  button.primary:hover { background: #D5E9DA; }
+  button:disabled { opacity: .55; cursor: wait; }
+  svg { width: 16px; height: 16px; flex: none; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="ethers.umd.min.js"></script>
+<script>
+(function () {
+  "use strict";
+  var ICON_WALLET = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h13v4"/><path d="M3 7v10a2 2 0 0 0 2 2h14a1 1 0 0 0 1-1v-3"/><path d="M21 9h-5a2 2 0 0 0 0 4h5z"/></svg>';
+  var ICON_NET = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>';
+  var ICON_SWAP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4 3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7"/></svg>';
+
+  var args = {};
+  var state = { installed: null, account: null, chainId: null, error: null, tx: null, rev: 0 };
+  var provider = null;
+  var started = false;
+  var busy = false;
+  var handled = loadHandled();
+
+  // ---------- Streamlit component protocol ----------
+  function post(type, data) {
+    window.parent.postMessage(Object.assign({ isStreamlitMessage: true, type: type }, data || {}), "*");
+  }
+  function publish() {
+    state.rev += 1;
+    post("streamlit:setComponentValue", { value: JSON.parse(JSON.stringify(state)), dataType: "json" });
+    render();
+  }
+  function setHeight() {
+    post("streamlit:setFrameHeight", { height: Math.max(40, document.getElementById("root").scrollHeight + 4) });
+  }
+  window.addEventListener("message", function (e) {
+    if (!e.data || e.data.type !== "streamlit:render") return;
+    args = e.data.args || {};
+    if (!started) { started = true; init(); }
+    render();
+    if (args.action) handleAction(args.action);
+  });
+  post("streamlit:componentReady", { apiVersion: 1 });
+
+  // ---------- persistence of handled tx ids (mencegah transaksi terkirim dua kali) ----------
+  function loadHandled() {
+    try { return JSON.parse(window.sessionStorage.getItem("hc_handled_tx") || "[]"); } catch (e) { return []; }
+  }
+  function saveHandled() {
+    try { window.sessionStorage.setItem("hc_handled_tx", JSON.stringify(handled.slice(-50))); } catch (e) {}
+  }
+
+  // ---------- provider ----------
+  function pick(c) {
+    if (!c) return null;
+    if (c.providers && c.providers.length) {
+      for (var i = 0; i < c.providers.length; i++) if (c.providers[i].isMetaMask) return c.providers[i];
+    }
+    return c;
+  }
+  function findProvider() {
+    var cands = [];
+    try { cands.push(window.ethereum); } catch (e) {}
+    try { cands.push(window.parent && window.parent.ethereum); } catch (e) {}
+    try { cands.push(window.top && window.top.ethereum); } catch (e) {}
+    for (var i = 0; i < cands.length; i++) { var p = pick(cands[i]); if (p) return p; }
+    return null;
+  }
+
+  function init() {
+    var waited = 0;
+    (function poll() {
+      provider = findProvider();
+      if (provider) return attach();
+      waited += 150;
+      if (waited >= 2400) { state.installed = false; publish(); return; }
+      setTimeout(poll, 150);
+    })();
+  }
+
+  function attach() {
+    state.installed = true;
+    if (provider.on) {
+      provider.on("accountsChanged", function (accs) {
+        state.account = accs && accs.length ? accs[0] : null;
+        state.error = null;
+        publish();
+      });
+      provider.on("chainChanged", function (id) {
+        state.chainId = parseInt(id, 16);
+        state.error = null;
+        publish();
+      });
+    }
+    Promise.all([
+      provider.request({ method: "eth_accounts" }).catch(function () { return []; }),
+      provider.request({ method: "eth_chainId" }).catch(function () { return null; })
+    ]).then(function (r) {
+      state.account = r[0] && r[0].length ? r[0][0] : null;
+      state.chainId = r[1] ? parseInt(r[1], 16) : null;
+      publish();
+    });
+  }
+
+  // ---------- helpers ----------
+  function errText(e) {
+    if (!e) return "Terjadi kesalahan tidak dikenal.";
+    var code = e.code || (e.info && e.info.error && e.info.error.code);
+    if (code === 4001 || code === "ACTION_REJECTED") return "Dibatalkan oleh pengguna di MetaMask.";
+    if (code === -32002) return "Ada permintaan yang masih menunggu di MetaMask. Buka ekstensi MetaMask lalu selesaikan.";
+    return e.shortMessage || e.message || String(e);
+  }
+  function isReject(e) {
+    var code = e && (e.code || (e.info && e.info.error && e.info.error.code));
+    return code === 4001 || code === "ACTION_REJECTED";
+  }
+  function hexChain() { return "0x" + Number(args.chainId || 31337).toString(16); }
+
+  // ---------- actions ----------
+  function connect() {
+    if (!provider) return;
+    state.error = null; render();
+    provider.request({ method: "eth_requestAccounts" }).then(function (accs) {
+      state.account = accs && accs.length ? accs[0] : null;
+      return provider.request({ method: "eth_chainId" });
+    }).then(function (id) {
+      state.chainId = parseInt(id, 16); publish();
+    }).catch(function (e) { state.error = errText(e); publish(); });
+  }
+
+  function switchAccount() {
+    if (!provider) return;
+    provider.request({ method: "wallet_requestPermissions", params: [{ eth_accounts: {} }] })
+      .then(function () { return provider.request({ method: "eth_accounts" }); })
+      .then(function (accs) { state.account = accs && accs.length ? accs[0] : null; state.error = null; publish(); })
+      .catch(function (e) { state.error = errText(e); publish(); });
+  }
+
+  function switchNetwork() {
+    if (!provider) return;
+    provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: hexChain() }] })
+      .catch(function (e) {
+        var inner = e && e.data && e.data.originalError && e.data.originalError.code;
+        if (e && (e.code === 4902 || inner === 4902 || /unrecognized chain/i.test(e.message || ""))) {
+          return provider.request({
+            method: "wallet_addEthereumChain",
+            params: [{
+              chainId: hexChain(),
+              chainName: args.chainName || "Hardhat Localhost",
+              rpcUrls: [args.rpcUrl || "http://127.0.0.1:8545"],
+              nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 }
+            }]
+          });
+        }
+        throw e;
+      })
+      .then(function () { return provider.request({ method: "eth_chainId" }); })
+      .then(function (id) { state.chainId = parseInt(id, 16); state.error = null; publish(); })
+      .catch(function (e) { state.error = errText(e); publish(); });
+  }
+
+  async function handleAction(a) {
+    if (!a || !a.id || handled.indexOf(a.id) !== -1 || busy) return;
+    handled.push(a.id); saveHandled();
+    busy = true; render();
+    var result = { id: a.id, status: "failed", hash: null, blockNumber: null, error: null };
+    try {
+      if (!provider) throw new Error("MetaMask belum terpasang.");
+      var accs = await provider.request({ method: "eth_accounts" });
+      if (!accs.some(function (x) { return x.toLowerCase() === String(a.from).toLowerCase(); }))
+        throw new Error("Akun MetaMask aktif berbeda dengan akun yang dipakai pada konfirmasi. Ulangi transaksi.");
+      var bp = new ethers.BrowserProvider(provider);
+      bp.pollingInterval = 1000;
+      var net = await bp.getNetwork();
+      if (Number(net.chainId) !== Number(args.chainId))
+        throw new Error("Jaringan MetaMask bukan Hardhat Localhost (Chain ID " + args.chainId + ").");
+      var signer = await bp.getSigner(a.from);
+      var resp = await signer.sendTransaction({ to: a.to, data: a.data, value: 0 });
+      state.tx = { id: a.id, status: "pending", hash: resp.hash, blockNumber: null, error: null };
+      publish();
+      var receipt = await resp.wait(1);
+      result.hash = resp.hash;
+      result.blockNumber = receipt ? Number(receipt.blockNumber) : null;
+      result.status = receipt && receipt.status === 1 ? "confirmed" : "reverted";
+      if (result.status === "reverted") result.error = "Transaksi dieksekusi tetapi dibatalkan (revert) oleh smart contract.";
+    } catch (e) {
+      result.status = isReject(e) ? "rejected" : "failed";
+      result.error = errText(e);
+      if (state.tx && state.tx.id === a.id && state.tx.hash) result.hash = state.tx.hash;
+    }
+    busy = false;
+    state.tx = result;
+    publish();
+  }
+
+  // ---------- render ----------
+  function render() {
+    var root = document.getElementById("root");
+    var h = "";
+    if (state.installed === null) {
+      h += '<div class="row"><span class="dot"></span><span class="msg">Memeriksa MetaMask…</span></div>';
+    } else if (state.installed === false) {
+      h += '<div class="row"><span class="dot bad"></span><span class="msg">MetaMask belum terpasang di browser ini.</span></div>';
+      h += '<a class="btn primary" style="background:#E3F0E6;color:#153D32;border-color:#C5DDCB" href="https://metamask.io/download/" target="_blank" rel="noopener noreferrer">' + ICON_WALLET + 'Pasang MetaMask</a>';
+    } else if (!state.account) {
+      h += '<div class="row"><span class="dot warn"></span><span class="msg">Wallet belum terhubung</span></div>';
+      h += '<button class="primary" id="b-connect">' + ICON_WALLET + 'Hubungkan MetaMask</button>';
+    } else {
+      var okChain = Number(state.chainId) === Number(args.chainId || 31337);
+      h += '<div class="row"><span class="dot ' + (okChain ? "ok" : "warn") + '"></span><span class="msg">' +
+           (okChain ? "Terhubung · Hardhat Localhost" : "Jaringan salah (Chain ID " + state.chainId + ")") + '</span></div>';
+      if (!okChain) h += '<button class="primary" id="b-net">' + ICON_NET + 'Pindah ke Hardhat Localhost</button>';
+      h += '<button id="b-swap">' + ICON_SWAP + 'Ganti akun</button>';
+    }
+    if (busy) h += '<div class="row"><span class="dot warn"></span><span class="msg">Menunggu persetujuan / konfirmasi block…</span></div>';
+    if (state.error) h += '<div class="err">' + String(state.error).replace(/[<>&]/g, "") + '</div>';
+    root.innerHTML = h;
+    var c = document.getElementById("b-connect"); if (c) c.onclick = connect;
+    var n = document.getElementById("b-net"); if (n) n.onclick = switchNetwork;
+    var s = document.getElementById("b-swap"); if (s) s.onclick = switchAccount;
+    setHeight();
+  }
+  render();
+})();
+</script>
+</body>
+</html>

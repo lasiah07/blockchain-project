@@ -1,23 +1,49 @@
-import hre from "hardhat";
+const hre = require("hardhat");
+const fs = require("fs");
+const path = require("path");
 
 async function main() {
-  const [deployer, accountLPH, accountBPJPH] = await hre.ethers.getSigners();
+  console.log("Memulai deployment HalalChain...");
 
-  console.log("Mendeploy contract dengan akun pengusaha:", deployer.address);
-  console.log("Alamat Wallet LPH (Account 1):", accountLPH.address);
-  console.log("Alamat Wallet BPJPH (Account 2):", accountBPJPH.address);
+  // Ambil akun bawaan dari Hardhat node
+  const accounts = await hre.ethers.getSigners();
+  const pengusaha = accounts[0];
+  const lph = accounts[1];
+  const bpjph = accounts[2];
 
-  const HalalChain = await hre.ethers.getContractFactory("HalalChain");
-  const halalChain = await HalalChain.deploy(accountLPH.address, accountBPJPH.address);
+  console.log("Mendeploy contract dengan akun pengusaha:", pengusaha.address);
+  console.log("Alamat Wallet LPH (Account 1):", lph.address);
+  console.log("Alamat Wallet BPJPH (Account 2):", bpjph.address);
 
-  await halalChain.waitForDeployment();
+  const ContractFactory = await hre.ethers.getContractFactory("HalalChain");
+  
+  // Masukkan argumen constructor (lph & bpjph)
+  const contract = await ContractFactory.deploy(lph.address, bpjph.address);
+  await contract.waitForDeployment();
 
-  const contractAddress = await halalChain.getAddress();
-
+  const contractAddress = await contract.getAddress();
   console.log("\n=============================================");
   console.log("Deployment Berhasil!");
   console.log("Alamat Contract HalalChain:", contractAddress);
-  console.log("=============================================");
+  console.log("=============================================\n");
+
+  // Simpan alamat kontrak ke deployment.json
+  const deploymentData = {
+    contractName: "HalalChain",
+    address: contractAddress,
+    network: "localhost",
+    chainId: 31337,
+    deployer: pengusaha.address,
+    lph: lph.address,
+    bpjph: bpjph.address
+  };
+
+  const deploymentPath = path.join(__dirname, "..", "deployment.json");
+  fs.writeFileSync(
+    deploymentPath,
+    JSON.stringify(deploymentData, null, 2)
+  );
+  console.log("Alamat kontrak berhasil disimpan ke deployment.json");
 }
 
 main().catch((error) => {

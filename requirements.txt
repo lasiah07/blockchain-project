@@ -1,0 +1,5 @@
+streamlit>=1.40
+web3>=7.0
+qrcode[pil]>=7.4
+opencv-python-headless>=4.8
+numpy
