@@ -21,15 +21,36 @@ Prasyarat: Node.js 18+, Python 3.10+, ekstensi MetaMask.
 ```bash
 npm install
 pip install -r requirements.txt
-
-npx hardhat compile                                    # menghasilkan ABI di artifacts/
-npx hardhat node                                       # TERMINAL 1 (biarkan berjalan)
-npx hardhat run scripts/deploy.js --network localhost  # TERMINAL 2
-streamlit run app.py                                   # TERMINAL 2 -> http://localhost:8501
+npx hardhat compile
 ```
-Alamat kontrak pada node baru selalu `0x5FbDB2315678afecb367f032d93F642f64180aa3` (deploy pertama oleh Account #0), sama dengan `deployment.json` Anda.
+Setiap kali bekerja, buka 3 terminal VS Code:
 
-> **Setiap kali `npx hardhat node` dimulai ulang, chain kembali kosong → jalankan lagi perintah deploy** dan reset MetaMask (lihat Troubleshooting).
+```bash
+# Terminal 1 - blockchain PERSISTEN (biarkan berjalan; Ctrl+C untuk berhenti)
+npm run node
+
+# Terminal 2 - deploy (aman dijalankan berulang: dilewati bila kontrak sudah ada)
+npm run deploy
+
+# Terminal 3 - aplikasi (Windows: .venv\Scripts\activate dahulu)
+streamlit run app.py          # -> http://localhost:8501
+```
+
+### Persistensi blockchain (data tidak hilang saat restart)
+**Penyebab masalah lama:** Hardhat 2.x (termasuk 2.29.1) tidak punya penyimpanan state. `npx hardhat node` selalu memulai chain kosong, sehingga produk/audit/sertifikat hilang, dan nonce chain kembali ke 0 sementara MetaMask masih mengingat nonce lama (error *Nonce too high*).
+
+**Solusi:** gunakan `npm run node` (bukan `npx hardhat node`). Skrip `scripts/persistent-node.js` mencatat setiap block (transaksi asli yang sudah ditandatangani + timestamp) ke `chain-data/journal.jsonl` sebelum MetaMask menerima hash transaksi. Saat dijalankan lagi, transaksi yang sama diputar ulang ke chain baru secara berurutan dengan timestamp asli, sehingga **alamat kontrak, state, nonce, dan hash transaksi identik**. Karena itu `hardhat_setNonce` tidak diperlukan lagi.
+
+- Aman terhadap penutupan mendadak (jurnal di-`fsync` per block; baris terakhir yang terpotong diabaikan).
+- Verifikasi integritas saat pemulihan: nomor block dan hash transaksi dicocokkan dengan jurnal; bila tidak cocok, node berhenti dengan pesan jelas dan **tidak menimpa data**.
+- `npm run deploy` tidak deploy ulang bila kontrak sudah ada. Paksa kontrak baru hanya bila perlu: `FORCE_DEPLOY=1 npm run deploy`.
+- `npm run chain:reset` mengosongkan chain (jurnal lama disimpan sebagai cadangan). Setelah reset: jalankan node, deploy, lalu di MetaMask **Settings > Advanced > Clear activity tab data** (satu-satunya situasi yang masih memerlukan reset MetaMask).
+- `chain-data/` ada di `.gitignore` (data lokal, jangan di-commit). Salin foldernya bila ingin memindahkan data ke komputer lain.
+- Batasan: hanya block/transaksi yang dipersistenkan (bukan `hardhat_setBalance`, impersonasi, atau mining interval). Mode automine bawaan Hardhat (1 transaksi = 1 block) didukung penuh.
+
+Alamat kontrak pada chain persisten tidak berubah antarrestart: `0x5FbDB2315678afecb367f032d93F642f64180aa3` (selama deploy dilakukan pertama kali oleh Account #0 pada chain baru).
+
+Opsi `npm run node:volatile` menjalankan node Hardhat biasa (tanpa persistensi) bila diperlukan.
 
 Opsional: `HALALCHAIN_BASE_URL` (default `http://localhost:8501`) menentukan URL di dalam QR Code. Untuk demo lewat HP, isi dengan `http://<IP-laptop>:8501`.
 
@@ -58,15 +79,17 @@ Peran **tidak dipilih di aplikasi**, melainkan dideteksi dari alamat wallet yang
 ## Troubleshooting
 | Gejala | Solusi |
 |---|---|
-| "Node Hardhat belum berjalan" | Jalankan `npx hardhat node` |
-| "Tidak ada smart contract pada alamat…" | Node di-restart → jalankan deploy lagi |
-| MetaMask: *nonce too high* / transaksi macet setelah restart node | MetaMask → Settings → Advanced → **Clear activity tab data** |
+| "Node Hardhat belum berjalan" | Jalankan `npm run node` |
+| "Tidak ada smart contract pada alamat…" | Chain kosong (mis. setelah `chain:reset` atau memakai `node:volatile`) → `npm run deploy` |
+| `Port 8545 sudah dipakai` | Tutup node Hardhat lain (mis. `npx hardhat node` lama) lalu ulangi `npm run node` |
+| *Nonce too high* | Pastikan memakai `npm run node`. Bila chain pernah di-reset: MetaMask → Settings → Advanced → **Clear activity tab data** |
 | Tombol MetaMask tidak muncul | Muat ulang halaman; pastikan ekstensi aktif untuk `localhost` |
 | Kamera QR tidak jalan | Izinkan kamera; `localhost` dianggap aman oleh browser. Gunakan unggah gambar sebagai alternatif |
 
 ## Menjalankan test
 ```bash
 npx hardhat test                  # kontrak (12 test)
+node tests/persistence_test.js    # persistensi: kill -9 berulang, nonce, deploy idempoten (14 cek)
 python tests/test_app_flow.py     # alur server (47 cek) — pakai node baru + deploy
 HARDHAT_ACCOUNT3_KEY=<private key Account #3> node tests/bridge_test.js   # butuh: npm i --no-save jsdom
 ```

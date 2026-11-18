@@ -2,7 +2,7 @@ import streamlit as st
 
 from .. import config
 from ..chain import fmt_time, get_events, list_products, short
-from ..ui import card, esc, metric, rows
+from ..ui import card, esc, kpi, rows
 
 
 def render(ctx):
@@ -12,6 +12,7 @@ def render(ctx):
     issued = sum(1 for p in products if p["tgl_terbit"])
     waiting = n(config.DIAJUKAN)
 
+    # Banner sambutan (badge jaringan & alamat kontrak ada di dalamnya)
     st.markdown(
         f"""<div class="banner"><div class="kick">HalalChain Certification Network</div>
         <div class="ttl">Sertifikasi halal, tercatat transparan.</div>
@@ -21,31 +22,42 @@ def render(ctx):
         unsafe_allow_html=True,
     )
 
-    st.markdown('<div class="eyebrow">RINGKASAN JARINGAN</div>', unsafe_allow_html=True)
-    c = st.columns(5)
-    c[0].markdown(metric("Total pengajuan", len(products), "▦", "Terdata di smart contract", hero=True), unsafe_allow_html=True)
-    c[1].markdown(metric("Sertifikat diterbitkan", issued, "✦", "Sejak awal jaringan"), unsafe_allow_html=True)
-    c[2].markdown(metric("Pengajuan menunggu", waiting, "◔", "Menunggu audit LPH"), unsafe_allow_html=True)
-    c[3].markdown(metric("Block terbaru", f"#{w3.eth.block_number}", "◈", "Tinggi block lokal"), unsafe_allow_html=True)
-    c[4].markdown(metric("Chain ID", w3.eth.chain_id, "⌘", config.CHAIN_NAME), unsafe_allow_html=True)
+    # ---- Ringkasan jaringan: lima kartu TANPA ikon
+    st.markdown('<div class="sect">Ringkasan jaringan</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="kgrid g5">'
+        + kpi("Total pengajuan", len(products), "Terdata di smart contract", dark=True)
+        + kpi("Sertifikat diterbitkan", issued, "Sejak awal jaringan")
+        + kpi("Pengajuan menunggu", waiting, "Menunggu audit LPH")
+        + kpi("Block terbaru", f"#{w3.eth.block_number}", "Tinggi block lokal")
+        + kpi("Chain ID", w3.eth.chain_id, config.CHAIN_NAME)
+        + "</div>",
+        unsafe_allow_html=True,
+    )
 
-    st.write("")
-    st.markdown('<div class="eyebrow">STATISTIK SERTIFIKASI</div>', unsafe_allow_html=True)
+    # ---- Statistik sertifikasi: empat kartu TANPA ikon, aksen warna tipis di sisi kiri
+    st.markdown('<div class="sect">Statistik sertifikasi</div>', unsafe_allow_html=True)
     pending = n(config.DIAJUKAN) + n(config.LOLOS_AUDIT)
     stats = [
-        ("Pending", pending, "◔", f"{n(config.DIAJUKAN)} menunggu audit · {n(config.LOLOS_AUDIT)} menunggu penerbitan", "#C9A64B"),
-        ("Approved", n(config.AKTIF), "✓", "Sertifikat aktif", "#2A7358"),
-        ("Rejected", n(config.GAGAL_AUDIT), "✕", "Gagal audit LPH", "#B24848"),
-        ("Expired", n(config.KEDALUWARSA), "⌛", "Melewati masa berlaku", "#9A9A8C"),
+        ("Pending", pending, f"{n(config.DIAJUKAN)} menunggu audit · {n(config.LOLOS_AUDIT)} menunggu penerbitan", "#D9A441"),
+        ("Approved", n(config.AKTIF), "Sertifikat aktif", "#2E8B64"),
+        ("Rejected", n(config.GAGAL_AUDIT), "Gagal audit LPH", "#C0463F"),
+        ("Expired", n(config.KEDALUWARSA), "Melewati masa berlaku", "#9A9A94"),
     ]
-    cols = st.columns(4)
-    for col, (label, val, icon, note, _) in zip(cols, stats):
-        col.markdown(metric(label, val, icon, note), unsafe_allow_html=True)
+    st.markdown(
+        '<div class="kgrid g4">' + "".join(kpi(t, v, note, accent=clr) for t, v, note, clr in stats) + "</div>",
+        unsafe_allow_html=True,
+    )
+
+    # ---- Distribusi status
     total = max(len(products), 1)
-    bar = "".join(f'<div style="width:{v / total * 100:.2f}%;background:{clr}"></div>' for _, v, _, _, clr in stats if v)
-    legend = "".join(f'<span><i style="background:{clr}"></i>{lbl} {v}</span>' for lbl, v, _, _, clr in stats)
-    st.markdown(f'<div class="card" style="margin-top:12px"><div class="sec-h">Distribusi status</div><div class="bar">{bar}</div><div class="legend">{legend}</div></div>',
-                unsafe_allow_html=True)
+    bar = "".join(f'<div style="width:{v / total * 100:.2f}%;background:{clr}"></div>' for _, v, _, clr in stats if v)
+    legend = "".join(f'<span><i style="background:{clr}"></i>{lbl} {v}</span>' for lbl, v, _, clr in stats)
+    st.markdown(
+        f'<div class="distcard"><div class="d-t">Distribusi status</div><div class="distbar">{bar}</div>'
+        f'<div class="distleg">{legend}</div></div>',
+        unsafe_allow_html=True,
+    )
 
     st.write("")
     left, right = st.columns([1.5, 1])

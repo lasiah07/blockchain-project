@@ -41,6 +41,7 @@
   var provider = null;
   var started = false;
   var busy = false;
+  var busyMsg = null;
   var handled = loadHandled();
 
   // ---------- Streamlit component protocol ----------
@@ -64,7 +65,7 @@
   });
   post("streamlit:componentReady", { apiVersion: 1 });
 
-  // ---------- persistence of handled tx ids (mencegah transaksi terkirim dua kali) ----------
+  // ---------- persistence of handled tx (mencegah transaksi terkirim dua kali) ----------
   function loadHandled() {
     try { return JSON.parse(window.sessionStorage.getItem("hc_handled_tx") || "[]"); } catch (e) { return []; }
   }
@@ -125,18 +126,81 @@
   }
 
   // ---------- helpers ----------
+  function innerMessage(e) {
+    // ethers membungkus error RPC ("could not coalesce error"); ambil pesan asli dari node/MetaMask
+    try {
+      var c = [e && e.info && e.info.error && e.info.error.message, e && e.error && e.error.message,
+               e && e.data && e.data.message, e && e.data && e.data.originalError && e.data.originalError.message,
+               e && e.info && e.info.error && e.info.error.data && e.info.error.data.message];
+      for (var i = 0; i < c.length; i++) if (c[i]) return String(c[i]);
+    } catch (x) {}
+    return null;
+  }
   function errText(e) {
     if (!e) return "Terjadi kesalahan tidak dikenal.";
     var code = e.code || (e.info && e.info.error && e.info.error.code);
     if (code === 4001 || code === "ACTION_REJECTED") return "Dibatalkan oleh pengguna di MetaMask.";
     if (code === -32002) return "Ada permintaan yang masih menunggu di MetaMask. Buka ekstensi MetaMask lalu selesaikan.";
-    return e.shortMessage || e.message || String(e);
+    return innerMessage(e) || e.shortMessage || e.message || String(e);
   }
   function isReject(e) {
     var code = e && (e.code || (e.info && e.info.error && e.info.error.code));
     return code === 4001 || code === "ACTION_REJECTED";
   }
   function hexChain() { return "0x" + Number(args.chainId || 31337).toString(16); }
+
+  // ---------- sinkronisasi pandangan MetaMask dengan chain (nonce & nomor block) ----------
+  // MetaMask menghitung nonce sendiri dari pandangannya terhadap chain (block terakhir + cache per nomor block).
+  // Aplikasi TIDAK pernah mengirim nonce. Namun bila pandangan itu basi (mis. chain pernah lebih tinggi / di-restart),
+  // MetaMask memakai nonce salah dan node menolak ("Nonce too high"). Sebelum mengirim, kita bandingkan pandangan
+  // MetaMask dengan node langsung, lalu menyembuhkannya dengan memajukan block (tanpa hardhat_setNonce).
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function hexNum(h) { return parseInt(h, 16); }
+  async function nodeRpc(method, params) {
+    var r = await fetch(args.rpcUrl, { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: method, params: params || [] }) });
+    var j = await r.json();
+    if (j.error) throw new Error(j.error.message);
+    return j.result;
+  }
+  async function nodeMine(n) {
+    n = Math.max(1, Math.min(n, 20000));
+    for (var done = 0; done < n; done += 500) {
+      var batch = [];
+      for (var i = 0; i < Math.min(500, n - done); i++) batch.push({ jsonrpc: "2.0", id: i + 1, method: "evm_mine", params: [] });
+      await fetch(args.rpcUrl, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(batch) });
+    }
+  }
+  async function mmNonce(from) {
+    try { return hexNum(await provider.request({ method: "eth_getTransactionCount", params: [from, "pending"] })); } catch (e) { return null; }
+  }
+  async function mmBlock() {
+    try { return hexNum(await provider.request({ method: "eth_blockNumber" })); } catch (e) { return null; }
+  }
+  async function syncWithNode(from) {
+    var nodeNonce, nodeBlock;
+    try {
+      nodeNonce = hexNum(await nodeRpc("eth_getTransactionCount", [from, "pending"]));
+    } catch (e) { return; } // node tidak terjangkau langsung dari browser: biarkan MetaMask yang menangani
+    var mm = await mmNonce(from);
+    if (mm === null || mm === nodeNonce) return;
+    var deadline = Date.now() + 45000, lastMine = 0, mined = 0, mmB = null;
+    while (Date.now() < deadline) {
+      busyMsg = "Menyinkronkan MetaMask dengan chain (nonce MetaMask " + mm + " ≠ nonce chain " + nodeNonce + ")…"; render();
+      nodeBlock = hexNum(await nodeRpc("eth_blockNumber"));
+      mmB = await mmBlock();
+      if (mmB !== null && mmB >= nodeBlock) { var need = mmB - nodeBlock + 1; await nodeMine(need); mined += need; lastMine = Date.now(); }
+      else if (Date.now() - lastMine > 8000) { await nodeMine(1); mined += 1; lastMine = Date.now(); }
+      await sleep(2000);
+      nodeNonce = hexNum(await nodeRpc("eth_getTransactionCount", [from, "pending"]));
+      mm = await mmNonce(from);
+      if (mm === null || mm === nodeNonce) { busyMsg = null; return; }
+    }
+    busyMsg = null;
+    throw new Error("Nonce yang dilihat MetaMask (" + mm + ") berbeda dari nonce chain (" + nodeNonce + "), block MetaMask #" + mmB +
+      " vs chain #" + nodeBlock + ", walau " + mined + " block sudah dimajukan. Transaksi TIDAK dikirim agar tidak gagal. " +
+      "Kemungkinan MetaMask terhubung ke RPC/node lain. Pastikan network MetaMask memakai RPC http://127.0.0.1:8545 (node dari: npm run node), lalu lihat chain-data/rpc-trace.log.");
+  }
 
   // ---------- actions ----------
   function connect() {
@@ -196,6 +260,7 @@
       var net = await bp.getNetwork();
       if (Number(net.chainId) !== Number(args.chainId))
         throw new Error("Jaringan MetaMask bukan Hardhat Localhost (Chain ID " + args.chainId + ").");
+      await syncWithNode(a.from);
       var signer = await bp.getSigner(a.from);
       var resp = await signer.sendTransaction({ to: a.to, data: a.data, value: 0 });
       state.tx = { id: a.id, status: "pending", hash: resp.hash, blockNumber: null, error: null };
@@ -234,7 +299,7 @@
       if (!okChain) h += '<button class="primary" id="b-net">' + ICON_NET + 'Pindah ke Hardhat Localhost</button>';
       h += '<button id="b-swap">' + ICON_SWAP + 'Ganti akun</button>';
     }
-    if (busy) h += '<div class="row"><span class="dot warn"></span><span class="msg">Menunggu persetujuan / konfirmasi block…</span></div>';
+    if (busy) h += '<div class="row"><span class="dot warn"></span><span class="msg">' + (busyMsg || "Menunggu persetujuan / konfirmasi block…").replace(/[<>&]/g, "") + '</span></div>';
     if (state.error) h += '<div class="err">' + String(state.error).replace(/[<>&]/g, "") + '</div>';
     root.innerHTML = h;
     var c = document.getElementById("b-connect"); if (c) c.onclick = connect;

@@ -57,7 +57,22 @@ def consume_result(ctx: Ctx):
     elif status == "rejected":
         tx["stage"], tx["error"] = "failed", "Transaksi dibatalkan: Anda menolak permintaan tanda tangan di MetaMask. Tidak ada data yang berubah."
     elif status in ("failed", "reverted"):
-        tx["stage"], tx["error"] = "failed", res.get("error") or "Transaksi gagal."
+        tx["stage"], tx["error"] = "failed", explain_error(res.get("error") or "Transaksi gagal.")
+
+
+def explain_error(msg: str) -> str:
+    """Terjemahkan error nonce dari node menjadi penjelasan yang dapat ditindaklanjuti."""
+    m = (msg or "")
+    low = m.lower()
+    if "nonce too high" in low or "nonce too low" in low or "invalid nonce" in low:
+        return (
+            f"{m}\n\nNonce yang dipakai MetaMask tidak sama dengan nonce chain. Aplikasi ini tidak pernah mengirim nonce sendiri; "
+            "MetaMask menghitungnya dari pandangannya terhadap chain. Lihat baris `eth_getTransactionCount` dan `eth_sendRawTransaction` "
+            "pada terminal `npm run node` (juga di chain-data/rpc-trace.log): bila baris `eth_getTransactionCount` TIDAK muncul, MetaMask "
+            "memakai cache lama atau terhubung ke RPC lain; bila muncul, bandingkan angkanya. Perbaikan otomatis: coba ulang transaksi "
+            "(aplikasi menyinkronkan block MetaMask lebih dulu) atau jalankan `npm run chain:advance -- 300`."
+        )
+    return m
 
 
 def _confirm():

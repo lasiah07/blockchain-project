@@ -1,3 +1,4 @@
+
 {
   "name": "halalchain",
   "version": "1.0.0",
@@ -5,9 +6,12 @@
   "main": "index.js",
   "scripts": {
     "compile": "hardhat compile",
-    "node": "hardhat node",
+    "node": "node scripts/persistent-node.js",
+    "node:volatile": "hardhat node",
     "deploy": "hardhat run scripts/deploy.js --network localhost",
-    "test": "hardhat test"
+    "chain:reset": "node scripts/reset-chain.js",
+    "test": "hardhat test",
+    "chain:advance": "node scripts/advance-chain.js"
   },
   "repository": {
     "type": "git",

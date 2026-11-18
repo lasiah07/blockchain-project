@@ -47,7 +47,7 @@ def inject_css():
 html, body, [class*="css"], .stApp {{ font-family: 'DM Sans', sans-serif; color: {INK}; }}
 .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"] {{ background: {IVORY}; }}
 [data-testid="stHeader"] {{ background: rgba(247,243,232,.9); }}
-.block-container {{ max-width: 1360px; padding-top: 2rem; padding-bottom: 3rem; }}
+.block-container {{ max-width: 1360px; padding-top: 4.2rem; padding-bottom: 3rem; }}
 h1,h2,h3,h4 {{ color: {FOREST} !important; font-family: 'Manrope', sans-serif !important; letter-spacing: -.4px; }}
 p, label, li {{ color: {INK}; }}
 [data-testid="stCaptionContainer"] p {{ color: {MUTED} !important; font-size: .82rem; }}
@@ -60,23 +60,23 @@ p, label, li {{ color: {INK}; }}
 [data-testid="stSidebar"] [data-testid="stCaptionContainer"] p {{ color: #B9D0C0 !important; }}
 [data-testid="stSidebar"] hr {{ border-color: #2E5A49; margin: 1rem 0; }}
 [data-testid="stSidebar"] [data-testid="stButton"] > button {{
-  width: 100%; min-height: 43px; display: flex; align-items: center; justify-content: flex-start;
-  gap: 4px; padding: 9px 12px !important; margin: 1px 0 !important; border-radius: 10px !important;
+  width: 100%; min-height: 48px; display: flex; align-items: center; justify-content: flex-start;
+  gap: 6px; padding: 10px 14px !important; margin: 4px 0 !important; border-radius: 10px !important;
   border: 1px solid transparent !important; background: transparent !important; box-shadow: none !important;
   transition: background .15s ease; }}
 [data-testid="stSidebar"] [data-testid="stButton"] > button > div {{ justify-content: flex-start !important; width: 100%; }}
-[data-testid="stSidebar"] [data-testid="stButton"] > button p {{ color: #EAF4ED !important; font-size: .88rem !important; font-weight: 600 !important; }}
+[data-testid="stSidebar"] [data-testid="stButton"] > button p {{ color: #EAF4ED !important; font-size: .95rem !important; font-weight: 500 !important; }}
 [data-testid="stSidebar"] [data-testid="stButton"] > button [data-testid="stIconMaterial"] {{ color: #CFE6D7 !important; }}
 [data-testid="stSidebar"] [data-testid="stButton"] > button:hover {{ background: #245746 !important; }}
 [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="primary"] {{
   background: #EEF5EC !important; border-color: {GOLD} !important; box-shadow: inset 3px 0 0 {GOLD} !important; }}
 [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="primary"] p,
 [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="primary"] [data-testid="stIconMaterial"] {{ color: {FOREST} !important; font-weight: 700 !important; }}
-.sb-title {{ color: #CFE0D4; font-size: .7rem; font-weight: 800; letter-spacing: 1.1px; margin: 4px 0 9px; text-transform: uppercase; }}
-.brand {{ display: flex; align-items: center; gap: 11px; padding: 6px 2px 16px; border-bottom: 1px solid #2E5A49; margin-bottom: 16px; }}
-.brand-mark {{ width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(135deg, #EEF5EC, {SAGE}); display: flex; align-items: center; justify-content: center; flex: none; }}
-.brand-name {{ color: #FFFFFF; font: 800 1.1rem 'Manrope', sans-serif; letter-spacing: -.3px; line-height: 1.1; }}
-.brand-sub {{ color: {GOLD}; font-size: .62rem; letter-spacing: 1.6px; font-weight: 700; margin-top: 2px; }}
+.sb-title {{ color: #E4EFE7; font-size: .72rem; font-weight: 700; letter-spacing: 1.2px; margin: 6px 0 12px; text-transform: uppercase; }}
+.brand {{ display: flex; align-items: center; gap: 14px; padding: 18px 2px 22px; border-bottom: 1px solid #2E5A49; margin-bottom: 22px; }}
+.brand-mark {{ width: 46px; height: 46px; border-radius: 13px; background: linear-gradient(135deg, #EEF5EC, {SAGE}); display: flex; align-items: center; justify-content: center; flex: none; }}
+.brand-name {{ color: #FFFFFF; font: 700 1.35rem 'Manrope', sans-serif; letter-spacing: -.3px; line-height: 1.1; }}
+.brand-sub {{ color: {GOLD}; font-size: .68rem; letter-spacing: 1.9px; font-weight: 600; margin-top: 4px; }}
 
 /* kartu wallet hijau dengan gelembung transparan */
 .wallet-card {{
@@ -168,8 +168,32 @@ p, label, li {{ color: {INK}; }}
 [data-testid="stVerticalBlockBorderWrapper"] {{ background: {SURFACE}; border-color: {BORDER}; border-radius: 16px; }}
 [data-testid="stTabs"] [role="tab"] p {{ font-weight: 700; }}
 code {{ color: {FOREST} !important; background: #F0F2E8 !important; border: 1px solid #E1E5D6; border-radius: 5px; padding: 1px 5px; }}
+
+/* ---------- Dashboard (kartu tanpa ikon, grid responsif) ---------- */
+.statusbar {{ display: flex; flex-wrap: wrap; align-items: center; gap: 8px 36px; color: {INK}; font-size: 1rem; padding: 6px 4px 18px; border-bottom: 1px solid {BORDER}; margin-bottom: 8px; }}
+.statusbar .sd {{ display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: {GREEN}; margin-right: 10px; }}
+.sect {{ color: {INK}; font-size: .82rem; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; margin: 26px 0 14px; }}
+.kgrid {{ display: grid; gap: 16px; }}
+.kgrid.g5 {{ grid-template-columns: repeat(5, minmax(0, 1fr)); }}
+.kgrid.g4 {{ grid-template-columns: repeat(4, minmax(0, 1fr)); }}
+.kpi {{ box-sizing: border-box; background: {SURFACE}; border: 1px solid {BORDER}; border-radius: 16px; padding: 20px 22px; min-height: 158px;
+  display: flex; flex-direction: column; justify-content: space-between; gap: 10px; box-shadow: 0 2px 8px rgba(40,50,30,.04); min-width: 0; }}
+.kpi .k-t {{ font-size: 1rem; font-weight: 600; color: {INK}; line-height: 1.3; }}
+.kpi .k-v {{ font: 800 2.35rem 'Manrope', sans-serif; color: {FOREST}; line-height: 1; letter-spacing: -.5px; overflow-wrap: anywhere; }}
+.kpi .k-n {{ font-size: .86rem; color: {MUTED}; line-height: 1.4; margin-top: 8px; min-height: 2.8em; }}
+.kpi.dark {{ background: #1E4534; border-color: #1E4534; }}
+.kpi.dark .k-t, .kpi.dark .k-v {{ color: #FFFFFF; }} .kpi.dark .k-n {{ color: #CFE0D4; }}
+.kpi.acc {{ border-left: 6px solid var(--acc); }}
+.distcard {{ background: {SURFACE}; border: 1px solid {BORDER}; border-radius: 16px; padding: 24px 28px 26px; margin-top: 18px; box-shadow: 0 2px 8px rgba(40,50,30,.04); }}
+.distcard .d-t {{ color: {FOREST}; font: 700 1.4rem 'Manrope', sans-serif; letter-spacing: -.4px; margin-bottom: 18px; }}
+.distbar {{ display: flex; height: 12px; border-radius: 99px; overflow: hidden; background: #E4E6E0; margin-bottom: 22px; }}
+.distleg {{ display: flex; flex-wrap: wrap; gap: 8px 28px; font-size: .95rem; color: {INK}; }}
+.distleg i {{ display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 9px; vertical-align: -1px; }}
+@media (max-width: 1180px) {{ .kgrid.g5 {{ grid-template-columns: repeat(3, minmax(0, 1fr)); }} .kgrid.g4 {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }} }}
+@media (max-width: 720px) {{ .kgrid.g5, .kgrid.g4 {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }} .kpi {{ min-height: 138px; padding: 16px 16px; }} .kpi .k-v {{ font-size: 1.9rem; }} .statusbar {{ gap: 6px 18px; font-size: .9rem; }} }}
+@media (max-width: 440px) {{ .kgrid.g5, .kgrid.g4 {{ grid-template-columns: minmax(0, 1fr); }} }}
 @media (max-width: 800px) {{
-  .block-container {{ padding: 1rem 1rem 2rem; }} .banner {{ padding: 22px; }} .banner .ttl {{ font-size: 1.4rem; }}
+  .block-container {{ padding: 4rem 1rem 2rem; }} .banner {{ padding: 22px; }} .banner .ttl {{ font-size: 1.4rem; }}
   .page-title {{ font-size: 1.5rem; }} .drow {{ flex-direction: column; gap: 2px; }} .dv {{ text-align: left; }}
   .verdict {{ flex-direction: column; align-items: flex-start; }}
 }}
@@ -192,6 +216,14 @@ def metric(label: str, value, icon: str, note: str = "", hero: bool = False) -> 
         f'<div class="metric{" hero" if hero else ""}"><div class="m-top"><div class="m-l">{esc(label)}</div>'
         f'<div class="m-i">{icon}</div></div><div class="m-v">{esc(value)}</div><div class="m-n">{esc(note)}</div></div>'
     )
+
+
+def kpi(title: str, value, note: str = "", dark: bool = False, accent: str = "") -> str:
+    """Kartu statistik tanpa ikon. `accent` = warna garis tipis di sisi kiri (opsional)."""
+    cls = "kpi" + (" dark" if dark else "") + (" acc" if accent else "")
+    style = f' style="--acc:{accent}"' if accent else ""
+    return (f'<div class="{cls}"{style}><div class="k-t">{esc(title)}</div>'
+            f'<div><div class="k-v">{esc(value)}</div><div class="k-n">{esc(note)}</div></div></div>')
 
 
 def chip(status: int) -> str:

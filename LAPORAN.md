@@ -40,3 +40,41 @@
 - NFT masih dapat ditransfer (aturan awal dipertahankan). "Produk milik" memakai `pemohon` atau pemilik NFT saat ini.
 - Hanya Hardhat Localhost; tidak ada penyimpanan berkas dokumen (hanya hash).
 - Dependensi npm (`typescript ^7`, `@types/node ^26`) dari proyek awal tidak saya ubah; bila `npm install` bermasalah di mesin Anda, periksa versi tersebut.
+
+---
+# Pembaruan 2: Persistensi blockchain & redesain Dashboard
+
+## A. Persistensi
+**Akar masalah (terbukti):** Hardhat 2.29.1 tidak memiliki `hardhat_dumpState/loadState` maupun `eth_getRawTransactionByHash` (diuji langsung pada provider). Chain hanya di memori. Skenario error Anda direproduksi persis pada `hardhat node` biasa: *"Nonce too high. Expected nonce to be 0 but got 2"*; pada node persisten transaksi yang sama diterima.
+
+**Pilihan yang dievaluasi:** (1) Anvil/Foundry punya `--state`, tetapi mewajibkan instalasi alat baru di Windows. (2) Database terpisah ditolak (bukan blockchain). (3) **Dipilih:** node Hardhat persisten dengan jurnal transaksi + replay, tanpa instalasi baru, dan state tetap diturunkan dari eksekusi EVM nyata.
+
+**Risiko/batasan yang perlu diketahui:** replay bergantung pada versi Hardhat yang sama (bila Hardhat di-upgrade dan hash tidak cocok, node berhenti tanpa menimpa data); waktu start bertambah seiring panjang riwayat (pada uji, 10 block dipulihkan dengan benar bersama start-up node; di sandbox ini total start beberapa belas detik, waktu replay sendiri tidak saya ukur terpisah, jadi tidak ada angka yang dijanjikan); hanya mode automine; peristiwa non-transaksi (`hardhat_setBalance`, impersonasi) tidak dipersistenkan.
+
+## B. Dashboard (mengikuti screenshot referensi)
+- Banner hijau diganti baris status tipis ("Hardhat Localhost - Chain ID 31337 · Kontrak 0x5FbDB2…80aa3") dengan garis pemisah, seperti referensi.
+- **Ringkasan Jaringan:** 5 kartu, **tanpa ikon**, judul-angka-keterangan, tinggi sama, angka sejajar; kartu pertama hijau pekat rata.
+- **Statistik Sertifikasi:** 4 kartu, **tanpa ikon**, aksen garis tipis di sisi kiri (Pending kuning keemasan, Approved hijau, Rejected merah, Expired abu-abu), latar tetap putih.
+- **Distribusi Status:** judul, progress bar, legenda berpenanda bulat; padding dan jarak disesuaikan.
+- Sidebar: logo/judul sedikit lebih besar, jarak menu lebih lega, bobot font menu lebih ringan (fungsi navigasi tidak berubah).
+- Grid CSS: 5 kolom (desktop) → 3 (<1180px) → 2 (<720px) → 1 (<440px). Perhitungan data tidak diubah.
+
+## C. Pengujian (dijalankan)
+| Uji | Hasil |
+|---|---|
+| Persistensi (`tests/persistence_test.js`): SIGKILL x4, produk/audit/sertifikat, timestamp, nonce cache MetaMask, event, deploy idempoten | **14/14** |
+| **Browser nyata** (Chromium headless + Streamlit + komponen MetaMask + provider tiruan ber-nonce-cache): ajukan → restart paksa → LPH audit (ganti akun) → restart → BPJPH terbit (ganti akun) → restart → verifikasi publik tanpa wallet → Dashboard | **13/13** |
+| Kontrol: `hardhat node` biasa pada skenario nonce yang sama | Error *Nonce too high* terreproduksi |
+| Regresi: kontrak 12/12, alur server 47/47, jembatan JS 12/12 (di atas node persisten) | Lulus |
+| UI (DOM + screenshot desktop 1440, tablet 900, mobile 400) | 0 ikon pada 9 kartu; 5 kartu jaringan setinggi sama; tanpa overflow horizontal |
+
+## D. Keterbatasan (jujur)
+- **Ekstensi MetaMask asli tetap belum diuji.** Pengganti yang dipakai meniru perilaku nonce-cache dan protokol EIP-1193, tetapi bukan ekstensi sungguhan.
+- Font Manrope/DM Sans dimuat dari Google Fonts; di lingkungan uji tanpa internet tampil font cadangan, sehingga tipografi pada komputer Anda akan sedikit berbeda dari screenshot uji.
+- Perbandingan visual dilakukan dengan mata terhadap screenshot referensi (bukan pencocokan piksel). Referensi memuat salah ketik "Penertiitan BJJPH" dan alamat "…180aa3"; yang dipakai tetap "Penerbitan BPJPH" dan "…80aa3".
+- Kode saya kerjakan pada salinan proyek hasil tahap sebelumnya. Saya tidak memiliki akses ke folder/GitHub Anda; terapkan dengan menyalin file yang diubah (daftar di bawah), lalu `git add/commit/push` seperti biasa. Riwayat Git tidak disentuh.
+
+## E. File yang berubah pada pembaruan ini
+**Baru:** `scripts/persistent-node.js`, `scripts/reset-chain.js`, `tests/persistence_test.js`, `tests/e2e_browser.js`.
+**Diubah:** `hardhat.config.js` (network `hardhat` + `initialDate` dari env, `localhost` tetap), `scripts/deploy.js` (idempoten + `FORCE_DEPLOY`), `package.json` (script `node`, `node:volatile`, `deploy`, `chain:reset`), `hc/ui.py` (CSS Dashboard/sidebar, helper `kpi`), `hc/pages/dashboard.py`, `.gitignore`, `README.md`, `LAPORAN.md`.
+**Tidak diubah:** kontrak, `hc/chain.py`, `hc/tx.py`, komponen MetaMask, halaman lain, `deployment.json`.
