@@ -1,95 +1,137 @@
 # HalalChain Certification Network
 
-Platform pendaftaran, audit, penerbitan, dan verifikasi sertifikasi halal berbasis blockchain.
-**Stack:** Streamlit (Python) · Solidity/Hardhat · ethers.js · MetaMask · Hardhat Localhost (Chain ID 31337).
+HalalChain adalah aplikasi pendaftaran, audit, penerbitan, dan verifikasi sertifikasi halal berbasis teknologi blockchain.
 
-## Struktur
-```
-app.py                          router, sidebar, panel wallet
-hc/                             logika aplikasi (config, chain, tx, ctx, ui, wallet, qr)
-hc/pages/                       dashboard, submit, products, detail, audit, issue, verify
-components/metamask_bridge/     komponen Streamlit dua arah (index.html + ethers.umd.min.js)
-contracts/HalalChain.sol        smart contract ERC-721 (revisi v2)
-scripts/deploy.js               deploy + tulis deployment.json
-test/HalalChain.test.js         test kontrak (Hardhat/chai)
-tests/                          uji alur server (AppTest) & uji jembatan JS
-```
+## Teknologi yang Digunakan
 
-## Instalasi & menjalankan (urutan wajib)
-Prasyarat: Node.js 18+, Python 3.10+, ekstensi MetaMask.
+- Python dan Streamlit
+- Solidity dan Hardhat
+- Web3.py dan ethers.js
+- MetaMask
+- Hardhat Localhost (Chain ID 31337)
+
+## Persyaratan
+
+Sebelum menjalankan aplikasi, pastikan perangkat sudah memiliki:
+
+- Node.js versi 18 atau lebih baru
+- Python versi 3.10 atau lebih baru
+- MetaMask Extension
+- Visual Studio Code
+
+## Instalasi
+
+1. Buka folder project melalui Visual Studio Code.
+2. Buka terminal pada folder project.
+3. Instal dependensi Node.js:
 
 ```bash
 npm install
+```
+
+4. Buat dan aktifkan virtual environment Python (Windows):
+
+```powershell
+python -m venv .venv
+.venv\Scripts\activate
+```
+
+5. Instal dependensi Python:
+
+```bash
 pip install -r requirements.txt
+```
+
+6. Kompilasi smart contract:
+
+```bash
 npx hardhat compile
 ```
-Setiap kali bekerja, buka 3 terminal VS Code:
+
+## Cara Menjalankan Aplikasi
+
+Jalankan aplikasi menggunakan tiga terminal di Visual Studio Code. Setiap terminal memiliki fungsi yang berbeda.
+
+### Terminal 1 — Menjalankan Blockchain
 
 ```bash
-# Terminal 1 - blockchain PERSISTEN (biarkan berjalan; Ctrl+C untuk berhenti)
 npm run node
-
-# Terminal 2 - deploy (aman dijalankan berulang: dilewati bila kontrak sudah ada)
-npm run deploy
-
-# Terminal 3 - aplikasi (Windows: .venv\Scripts\activate dahulu)
-streamlit run app.py          # -> http://localhost:8501
 ```
 
-### Persistensi blockchain (data tidak hilang saat restart)
-**Penyebab masalah lama:** Hardhat 2.x (termasuk 2.29.1) tidak punya penyimpanan state. `npx hardhat node` selalu memulai chain kosong, sehingga produk/audit/sertifikat hilang, dan nonce chain kembali ke 0 sementara MetaMask masih mengingat nonce lama (error *Nonce too high*).
+Perintah ini menjalankan jaringan blockchain lokal Hardhat dengan mekanisme persistensi data.
 
-**Solusi:** gunakan `npm run node` (bukan `npx hardhat node`). Skrip `scripts/persistent-node.js` mencatat setiap block (transaksi asli yang sudah ditandatangani + timestamp) ke `chain-data/journal.jsonl` sebelum MetaMask menerima hash transaksi. Saat dijalankan lagi, transaksi yang sama diputar ulang ke chain baru secara berurutan dengan timestamp asli, sehingga **alamat kontrak, state, nonce, dan hash transaksi identik**. Karena itu `hardhat_setNonce` tidak diperlukan lagi.
+Biarkan terminal tetap berjalan selama aplikasi digunakan.
 
-- Aman terhadap penutupan mendadak (jurnal di-`fsync` per block; baris terakhir yang terpotong diabaikan).
-- Verifikasi integritas saat pemulihan: nomor block dan hash transaksi dicocokkan dengan jurnal; bila tidak cocok, node berhenti dengan pesan jelas dan **tidak menimpa data**.
-- `npm run deploy` tidak deploy ulang bila kontrak sudah ada. Paksa kontrak baru hanya bila perlu: `FORCE_DEPLOY=1 npm run deploy`.
-- `npm run chain:reset` mengosongkan chain (jurnal lama disimpan sebagai cadangan). Setelah reset: jalankan node, deploy, lalu di MetaMask **Settings > Advanced > Clear activity tab data** (satu-satunya situasi yang masih memerlukan reset MetaMask).
-- `chain-data/` ada di `.gitignore` (data lokal, jangan di-commit). Salin foldernya bila ingin memindahkan data ke komputer lain.
-- Batasan: hanya block/transaksi yang dipersistenkan (bukan `hardhat_setBalance`, impersonasi, atau mining interval). Mode automine bawaan Hardhat (1 transaksi = 1 block) didukung penuh.
+### Terminal 2 — Deployment Smart Contract
 
-Alamat kontrak pada chain persisten tidak berubah antarrestart: `0x5FbDB2315678afecb367f032d93F642f64180aa3` (selama deploy dilakukan pertama kali oleh Account #0 pada chain baru).
+Buka terminal baru, kemudian jalankan:
 
-Opsi `npm run node:volatile` menjalankan node Hardhat biasa (tanpa persistensi) bila diperlukan.
+```bash
+npm run deploy
+```
 
-Opsional: `HALALCHAIN_BASE_URL` (default `http://localhost:8501`) menentukan URL di dalam QR Code. Untuk demo lewat HP, isi dengan `http://<IP-laptop>:8501`.
+Perintah ini memastikan smart contract tersedia pada jaringan Hardhat Localhost.
+
+### Terminal 3 — Menjalankan Aplikasi Streamlit
+
+Buka terminal baru, aktifkan virtual environment jika belum aktif:
+
+```powershell
+.venv\Scripts\activate
+```
+
+Kemudian jalankan:
+
+```bash
+streamlit run app.py
+```
+
+Aplikasi dapat diakses melalui browser pada alamat:
+
+**http://localhost:8501**
 
 ## Konfigurasi MetaMask
-1. **Tambah jaringan** (atau klik **Pindah ke Hardhat Localhost** di sidebar, otomatis menambahkan):
-   Nama `Hardhat Localhost` · RPC `http://127.0.0.1:8545` · Chain ID `31337` · Simbol `ETH`.
-2. **Impor akun** lewat *Account → Add account → Import account → Private key*. Salin private key dari output terminal `npx hardhat node` (jangan pernah dipakai di jaringan sungguhan):
 
-| Peran | Akun Hardhat |
+Hubungkan MetaMask dengan jaringan blockchain lokal menggunakan konfigurasi berikut:
+
+| Konfigurasi | Nilai |
 |---|---|
-| Pengusaha A | Account #0 (juga deployer) |
-| **LPH** | **Account #1** |
-| **BPJPH** | **Account #2** |
-| Pengusaha B / C | Account #3 / #4 |
+| Network Name | Hardhat Localhost |
+| RPC URL | http://127.0.0.1:8545 |
+| Chain ID | 31337 |
+| Currency Symbol | ETH |
 
-Peran **tidak dipilih di aplikasi**, melainkan dideteksi dari alamat wallet yang terdaftar di smart contract (`lphAuditor`, `bpjphPenerbit`). Untuk berganti peran, ganti akun di MetaMask (tombol **Ganti akun** di sidebar).
+Gunakan akun pengujian dari Hardhat untuk menjalankan setiap peran dalam aplikasi.
 
-## Panduan pengujian manual per peran
-1. **Pengusaha (#3)** — Hubungkan MetaMask → *Pengajuan Produk* → isi form, unggah dokumen (hash SHA-256 dihitung otomatis) → *Kirim* → tinjau panel konfirmasi → *Konfirmasi & tandatangani* → setujui di MetaMask. Hash transaksi & block tampil. Cek di *Daftar Produk*.
-2. **LPH (#1)** — Ganti akun → *Audit LPH* → pilih produk → isi lembar pemeriksaan → *Setujui audit* (atau *Tolak audit*; hasil gagal tercatat permanen).
-3. **BPJPH (#2)** — Ganti akun → *Penerbitan BPJPH* → pilih produk lolos audit → isi nomor ketetapan (mis. `HC-2026-0001`) → *Terbitkan*.
-4. **Pengusaha** — *Daftar Produk → Detail*: lihat status, nomor sertifikat, riwayat, QR Code (bisa diunduh).
-5. **Publik (tanpa wallet)** — *Lacak Sertifikat*: cari nomor sertifikat, atau pindai QR (kamera/unggah gambar), atau buka URL `?verify=<nomor>`.
-6. **Uji negatif** — buka *Audit LPH* dengan wallet Pengusaha (ditolak); pindah ke jaringan lain di MetaMask (transaksi diblokir); klik *Reject* di MetaMask (pesan "dibatalkan"); isi hash tidak valid; pakai nomor ketetapan ganda.
-
-## Troubleshooting
-| Gejala | Solusi |
+| Akun | Peran |
 |---|---|
-| "Node Hardhat belum berjalan" | Jalankan `npm run node` |
-| "Tidak ada smart contract pada alamat…" | Chain kosong (mis. setelah `chain:reset` atau memakai `node:volatile`) → `npm run deploy` |
-| `Port 8545 sudah dipakai` | Tutup node Hardhat lain (mis. `npx hardhat node` lama) lalu ulangi `npm run node` |
-| *Nonce too high* | Pastikan memakai `npm run node`. Bila chain pernah di-reset: MetaMask → Settings → Advanced → **Clear activity tab data** |
-| Tombol MetaMask tidak muncul | Muat ulang halaman; pastikan ekstensi aktif untuk `localhost` |
-| Kamera QR tidak jalan | Izinkan kamera; `localhost` dianggap aman oleh browser. Gunakan unggah gambar sebagai alternatif |
+| Account #0 | Pengusaha |
+| Account #1 | LPH |
+| Account #2 | BPJPH |
+| Account #3 dan seterusnya | Pengusaha tambahan |
 
-## Menjalankan test
-```bash
-npx hardhat test                  # kontrak (12 test)
-node tests/persistence_test.js    # persistensi: kill -9 berulang, nonce, deploy idempoten (14 cek)
-python tests/test_app_flow.py     # alur server (47 cek) — pakai node baru + deploy
-HARDHAT_ACCOUNT3_KEY=<private key Account #3> node tests/bridge_test.js   # butuh: npm i --no-save jsdom
-```
+Private key akun pengujian dapat diperoleh dari output terminal Hardhat. Akun tersebut hanya digunakan pada jaringan lokal, bukan jaringan blockchain sungguhan.
+
+**Catatan:** Jangan pernah menggunakan atau membagikan private key akun pribadi maupun akun dengan aset sungguhan.
+
+## Alur Penggunaan Aplikasi
+
+1. **Pengusaha:** Mendaftarkan produk dan mengunggah dokumen persyaratan sertifikasi halal.
+2. **LPH:** Melakukan pemeriksaan dan audit terhadap produk yang diajukan.
+3. **BPJPH:** Menerbitkan sertifikat halal untuk produk yang telah lolos audit.
+4. **Pengusaha:** Melihat detail pengajuan, status sertifikasi, dan QR Code.
+5. **Publik:** Melakukan verifikasi sertifikat melalui nomor sertifikat atau QR Code.
+
+## Menghentikan Aplikasi
+
+Untuk menghentikan aplikasi:
+
+1. Tekan `Ctrl + C` pada terminal Streamlit.
+2. Tekan `Ctrl + C` pada terminal deployment jika prosesnya masih berjalan.
+3. Tekan `Ctrl + C` pada terminal blockchain.
+
+**Catatan:** Jangan menghapus folder `chain-data` jika ingin mempertahankan data blockchain lokal yang sudah tersimpan.
+
+---
+
+**Repository:** https://github.com/lasiah07/blockchain-project
