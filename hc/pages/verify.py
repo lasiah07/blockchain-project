@@ -25,7 +25,7 @@ def _verdict(p, found: bool, query: str):
     return "info", "◔", "Belum ada sertifikat", "Produk terdaftar, tetapi sertifikat halal belum diterbitkan. Belum dapat dianggap bersertifikat halal."
 
 
-def show_result(chain, query: str):
+def show_result(chain, query: str, key_prefix="search"):
     tid = find_token(chain, query)
     p = read_product(chain, tid) if tid else None
     tone, icon, title, sub = _verdict(p, bool(p), query)
@@ -62,7 +62,7 @@ def show_result(chain, query: str):
             ("Transaction hash", issue_ev["tx_hash"] if issue_ev else "-"), ("Hash dokumen", p["hash_dokumen"]),
         ], mono=("Diterbitkan oleh", "Transaction hash", "Hash dokumen"))), unsafe_allow_html=True)
         st.write("")
-        document_checker(p, key=f'verify_doc_{p["token_id"]}')
+        document_checker(p, key=f'verify_doc_{key_prefix}_{p["token_id"]}')
 
 
 def _use(cert: str):
