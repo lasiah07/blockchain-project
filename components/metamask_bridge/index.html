@@ -178,29 +178,24 @@
     try { return hexNum(await provider.request({ method: "eth_blockNumber" })); } catch (e) { return null; }
   }
   async function syncWithNode(from) {
-    var nodeNonce, nodeBlock;
-    try {
-      nodeNonce = hexNum(await nodeRpc("eth_getTransactionCount", [from, "pending"]));
-    } catch (e) { return; } // node tidak terjangkau langsung dari browser: biarkan MetaMask yang menangani
-    var mm = await mmNonce(from);
-    if (mm === null || mm === nodeNonce) return;
-    var deadline = Date.now() + 45000, lastMine = 0, mined = 0, mmB = null;
-    while (Date.now() < deadline) {
-      busyMsg = "Menyinkronkan MetaMask dengan chain (nonce MetaMask " + mm + " ≠ nonce chain " + nodeNonce + ")…"; render();
-      nodeBlock = hexNum(await nodeRpc("eth_blockNumber"));
-      mmB = await mmBlock();
-      if (mmB !== null && mmB >= nodeBlock) { var need = mmB - nodeBlock + 1; await nodeMine(need); mined += need; lastMine = Date.now(); }
-      else if (Date.now() - lastMine > 8000) { await nodeMine(1); mined += 1; lastMine = Date.now(); }
-      await sleep(2000);
-      nodeNonce = hexNum(await nodeRpc("eth_getTransactionCount", [from, "pending"]));
-      mm = await mmNonce(from);
-      if (mm === null || mm === nodeNonce) { busyMsg = null; return; }
-    }
-    busyMsg = null;
-    throw new Error("Nonce yang dilihat MetaMask (" + mm + ") berbeda dari nonce chain (" + nodeNonce + "), block MetaMask #" + mmB +
-      " vs chain #" + nodeBlock + ", walau " + mined + " block sudah dimajukan. Transaksi TIDAK dikirim agar tidak gagal. " +
-      "Kemungkinan MetaMask terhubung ke RPC/node lain. Pastikan network MetaMask memakai RPC http://127.0.0.1:8545 (node dari: npm run node), lalu lihat chain-data/rpc-trace.log.");
+  var nonce;
+
+  try {
+    nonce = hexNum(
+      await nodeRpc("eth_getTransactionCount", [from, "pending"])
+    );
+  } catch (e) {
+    throw new Error(
+      "Gagal membaca nonce dari blockchain HalalChain: " + e.message
+    );
   }
+
+  if (!Number.isSafeInteger(nonce) || nonce < 0) {
+    throw new Error("Nonce dari blockchain tidak valid.");
+  }
+
+  return nonce;
+}
 
   // ---------- actions ----------
   function connect() {
@@ -260,9 +255,15 @@
       var net = await bp.getNetwork();
       if (Number(net.chainId) !== Number(args.chainId))
         throw new Error("Jaringan MetaMask bukan Hardhat Localhost (Chain ID " + args.chainId + ").");
-      await syncWithNode(a.from);
+      var nonce = await syncWithNode(a.from);
       var signer = await bp.getSigner(a.from);
-      var resp = await signer.sendTransaction({ to: a.to, data: a.data, value: 0 });
+
+      var resp = await signer.sendTransaction({
+        to: a.to,
+        data: a.data,
+        value: 0,
+        nonce: nonce
+      });
       state.tx = { id: a.id, status: "pending", hash: resp.hash, blockNumber: null, error: null };
       publish();
       var receipt = await resp.wait(1);
